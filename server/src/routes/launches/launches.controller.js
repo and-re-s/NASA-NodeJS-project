@@ -1,12 +1,17 @@
 const {
   getAllLaunches,
-  addNewLaunch,
+  scheduleNewLaunch,
   abortLaunch,
   existsLaunchWithId,
 } = require("../../models/launches.model");
 
-function httpGetAllLaunches(req, res) {
-  return res.status(200).json(getAllLaunches());
+const { getPagination } = require("../../services/query");
+
+async function httpGetAllLaunches(req, res) {
+  const { skip, limit } = getPagination(req.query);
+  const launches = await getAllLaunches(skip, limit);
+
+  return res.status(200).json(launches);
 }
 
 function httpAddNewLaunch(req, res) {
@@ -27,20 +32,28 @@ function httpAddNewLaunch(req, res) {
     });
   }
 
-  addNewLaunch(launch);
+  scheduleNewLaunch(launch);
   return res.status(201).json(launch);
 }
 
-function httpCancelLaunch(req, res) {
+async function httpCancelLaunch(req, res) {
   const launchId = Number(req.params.id);
+  const existLaunch = await existsLaunchWithId(launchId);
 
-  if (!existsLaunchWithId(launchId)) {
+  if (!existLaunch) {
     return res.status(404).json({
       error: "No such launch id",
     });
   }
 
-  const aborted = abortLaunch(launchId);
+  const aborted = await abortLaunch(launchId);
+
+  if (!aborted) {
+    return res.status(400).json({
+      error: "Launch not cancelled",
+    });
+  }
+
   return res.status(200).json(aborted);
 }
 
